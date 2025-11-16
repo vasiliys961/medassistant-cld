@@ -1,24 +1,35 @@
 import streamlit as st
+import os
+from dotenv import load_dotenv
+import anthropic
+
+# Локальная загрузка .env (ничего не меняет при деплое!)
+load_dotenv()
+
+# Сначала пробуем ключ из окружения, потом (при необходимости) из секрета Streamlit
+API_KEY = os.getenv("ANTHROPIC_API_KEY") or st.secrets.get("anthropic_key")
+if not API_KEY:
+    st.error("Anthropic API ключ не найден! Добавьте ANTHROPIC_API_KEY в .env или Secret.")
+    st.stop()
+
+client = anthropic.Anthropic(api_key=API_KEY)
+
+# ... твои внутренние импорты
 from modules.intent_detection import predict_intent
 from modules.ecg_analysis import analyze_ecg
 from modules.image_analysis import analyze_image
 from modules.lab_analysis import analyze_lab
 from modules.ocr_tools import ocr_and_parse_lab, ocr_and_parse_ecg_img
-import anthropic
-from ecgdetectors import Detectors
-
 
 st.set_page_config(page_title="МедАИ Ассистент", layout="centered")
 st.title("🩺 Мультимодальный медицинский ассистент (Claude)")
 
-# Anthropic Claude API
-API_KEY = st.secrets["anthropic_key"]
-client = anthropic.Client(api_key=API_KEY)
-
 user_task = st.text_area("Опишите задачу (можно голосом; любые формулировки):", height=90)
-uploaded_file = st.file_uploader("Загрузите файл (ЭКГ, снимок, лабораторный анализ, скан или фото бумажного анализа/ЭКГ):",
-                                 type=["csv","xml","jpg","png","dcm","pdf","jpeg","tiff"])
-output = None
+uploaded_file = st.file_uploader(
+    "Загрузите файл (ЭКГ, снимок, лабораторный анализ, скан или фото бумажного анализа/ЭКГ):",
+    type=["csv", "xml", "jpg", "png", "dcm", "pdf", "jpeg", "tiff"])
+
+output, details = None, None
 
 if st.button("Анализировать"):
     if not (user_task or uploaded_file):
@@ -27,8 +38,8 @@ if st.button("Анализировать"):
 
     intent = predict_intent(user_task, uploaded_file)
     st.info(f"Обнаружен кейс: {intent}")
-    details = None
 
+    # ===== Анализ данных =====
     if intent == "ecg":
         if uploaded_file.name.endswith(('.jpg', '.jpeg', '.png', '.tiff', '.pdf')):
             signal, meta = ocr_and_parse_ecg_img(uploaded_file)
@@ -57,10 +68,10 @@ if st.button("Анализировать"):
             res, details = analyze_lab(uploaded_file)
         st.write("Результаты лабораторного анализа:")
         st.write(res)
-
     else:
         details = user_task
 
+    # ===== Запрос к Claude =====
     prompt = (f"Ты — медицинский AI-ассистент. Клиническая задача:\n"
               f"{user_task}\n"
               f"Данные/результаты прикладного анализа:\n{details}\n"
@@ -74,7 +85,10 @@ if st.button("Анализировать"):
             system="Ты — эксперт-медик, всё объясняешь формально и строго по стандартам.",
             messages=[{"role": "user", "content": prompt}]
         )
-        protocol = response.content[0].text
+        # Для актуальной версии anthropic API: response.content[0].text или response.content
+        protocol = response.content[0].text if hasattr(response.content[0], "text") else response.content 
+
         st.subheader("Заключение и протокол от Claude")
         st.text_area("📝 Протокол:", protocol, height=280)
         st.download_button("⬇️ Скачать протокол", protocol, file_name="protocol.txt", mime="text/plain")
+

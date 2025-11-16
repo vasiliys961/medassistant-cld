@@ -11,3 +11,6 @@ pytesseract
 opencv-python
 Pillow
 pdf2image
+anthropic>=0.4.5
+python-dotenv>=1.0.1   # для локальной разработки, чтобы удобно тянуть ключ из .env
+python-dotenv
