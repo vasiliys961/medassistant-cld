@@ -5,6 +5,7 @@ from modules.image_analysis import analyze_image
 from modules.lab_analysis import analyze_lab
 from modules.ocr_tools import ocr_and_parse_lab, ocr_and_parse_ecg_img
 import anthropic
+from pyecgdetectors import Detectors
 
 st.set_page_config(page_title="МедАИ Ассистент", layout="centered")
 st.title("🩺 Мультимодальный медицинский ассистент (Claude)")
