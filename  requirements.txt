@@ -1,0 +1,13 @@
+streamlit
+anthropic
+wfdb
+py-ecg-detectors
+pandas
+requests
+biopython
+python-docx
+scikit-learn
+pytesseract
+opencv-python
+Pillow
+pdf2image
