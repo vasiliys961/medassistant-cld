@@ -58,3 +58,8 @@ htmlcov/
 *.bak
 EOF
 
+venv310/
+venv/
+env/
+.venv/
+*.egg-info/
