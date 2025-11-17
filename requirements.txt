@@ -1,16 +1,10 @@
-streamlit
-anthropic
-wfdb
-py-ecg-detectors
-pandas
-requests
-biopython
-python-docx
-scikit-learn
-pytesseract
-opencv-python
-Pillow
-pdf2image
-anthropic>=0.4.5
-python-dotenv>=1.0.1   # для локальной разработки, чтобы удобно тянуть ключ из .env
-python-dotenv
+streamlit>=1.30.0
+python-dotenv>=1.0.0
+anthropic>=0.7.0
+httpx>=0.24.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+Pillow>=10.0.0
+PyPDF2>=3.0.0
+pytesseract>=0.3.10
+
