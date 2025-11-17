@@ -63,3 +63,4 @@ venv/
 env/
 .venv/
 *.egg-info/
+.streamlit/
