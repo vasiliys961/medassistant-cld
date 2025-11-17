@@ -32,7 +32,7 @@ from modules.ocr import extract_text_from_image
 # ============ КОНФИГ OPENROUTER ============
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") or st.secrets.get("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.io/api/v1/chat/completions"
-MODEL_NAME = "anthropic/claude-3-sonnet-20240229"
+MODEL_NAME = "meta-llama/llama-3.2-90b-vision-instruct"
 
 # ============ STREAMLIT КОНФИГ ============
 st.set_page_config(
