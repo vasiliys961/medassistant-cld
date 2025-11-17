@@ -1,4 +1,3 @@
-cat > app.py << 'EOF'
 import streamlit as st
 import os
 import json
@@ -139,7 +138,7 @@ def process_uploaded_file(uploaded_file, task_description: str) -> dict:
         logger.info(f"Обработка файла: {uploaded_file.name}")
         
         intent = detect_intent(task_description, uploaded_file.name)
-        logger.info(f"Определён intent: {intent}")
+        logger.info(f"Определен intent: {intent}")
         
         result = {
             "intent": intent,
@@ -152,5 +151,194 @@ def process_uploaded_file(uploaded_file, task_description: str) -> dict:
             if uploaded_file.name.endswith(('.csv', '.txt')):
                 ecg_data = process_ecg(uploaded_file)
                 result["raw_data"] = ecg_data
-                result["analysis"] = f"ЭКГ данные загружены. Количество отсчётов: {len(ecg_data)}"
-                logger.info("ЭКГ успешно об
+                result["analysis"] = f"ЭКГ данные загружены. Количество отсчетов: {len(ecg_data)}"
+                logger.info("ЭКГ успешно обработана")
+            else:
+                result["error"] = "ECG должна быть в формате CSV или TXT"
+        
+        elif intent == "image":
+            if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                image_analysis = process_image(uploaded_file)
+                result["raw_data"] = image_analysis
+                result["analysis"] = "Изображение загружено и проанализировано"
+                logger.info("Изображение успешно обработано")
+            else:
+                result["error"] = "Поддерживаемые форматы: PNG, JPG, JPEG, BMP"
+        
+        elif intent == "lab":
+            if uploaded_file.name.lower().endswith(('.csv', '.xlsx', '.xls')):
+                lab_data = process_lab_analysis(uploaded_file)
+                result["raw_data"] = lab_data
+                result["analysis"] = f"Лабораторные данные загружены. Параметров: {len(lab_data)}"
+                logger.info("Лабораторные анализы успешно обработаны")
+            else:
+                result["error"] = "Лабораторные анализы должны быть в формате CSV, XLSX или XLS"
+        
+        elif intent == "document":
+            if uploaded_file.name.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+                extracted_text = extract_text_from_image(uploaded_file)
+                result["raw_data"] = extracted_text
+                result["analysis"] = f"Текст извлечен из документа. Длина текста: {len(extracted_text)} символов"
+                logger.info("Текст успешно извлечен из документа")
+            else:
+                result["error"] = "Поддерживаемые форматы документов: PDF, PNG, JPG"
+        
+        else:
+            result["error"] = f"Неизвестный тип файла: {intent}"
+        
+        return result
+    
+    except Exception as e:
+        error_msg = f"Ошибка при обработке файла: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return {
+            "intent": None,
+            "analysis": None,
+            "raw_data": None,
+            "error": error_msg
+        }
+
+
+def generate_medical_report(task_description: str, analysis_data: dict) -> dict:
+    """
+    Генерирует медицинский отчет через OpenRouter API.
+    """
+    
+    context = f"""
+    Задача: {task_description}
+    Тип анализа: {analysis_data.get('intent', 'неизвестно')}
+    Предварительный анализ: {analysis_data.get('analysis', 'нет')}
+    """
+    
+    if analysis_data.get('raw_data'):
+        context += f"\nДанные: {json.dumps(analysis_data['raw_data'], ensure_ascii=False, indent=2)[:2000]}"
+    
+    system_prompt = """Ты — опытный врач-диагност и кардиолог с глубокими знаниями стандартов диагностики.
+    Твоя задача — провести качественный анализ медицинских данных, опираясь на современные стандарты медицины.
+    В ответе:
+    1. Описание находок
+    2. Предварительные выводы
+    3. Рекомендации по стандартам (ГОСТ, МКБ-10, ESC, ACC/AHA)
+    4. Необходимые дополнительные исследования
+    5. Рекомендации по лечению и наблюдению
+    Формат: структурированный отчет с понятными заголовками."""
+    
+    prompt = f"""На основе следующих медицинских данных подготовь детальный диагностический отчет:
+    
+    {context}
+    
+    Проведи полный анализ с учетом клинических стандартов и рекомендаций."""
+    
+    logger.info("Формирование запроса для генерации отчета")
+    
+    result = call_openrouter(
+        prompt=prompt,
+        system_prompt=system_prompt,
+        max_tokens=1400,
+        temperature=0.1
+    )
+    
+    return result
+
+
+# ============ STREAMLIT UI ============
+
+with st.sidebar:
+    st.header("Параметры")
+    
+    st.subheader("Модель")
+    st.info(f"Модель: {MODEL_NAME}\n\nAPI: OpenRouter")
+    
+    st.subheader("Проверка конфигурации")
+    if OPENROUTER_API_KEY:
+        st.success("API ключ загружен")
+    else:
+        st.error("API ключ не найден")
+        st.write("Добавьте в .env:")
+        st.code("OPENROUTER_API_KEY=sk_...")
+    
+    st.divider()
+    
+    st.subheader("О приложении")
+    st.markdown("""
+    MedAssistant - мультимодальный медицинский ассистент.
+    
+    Типы анализа:
+    - ЭКГ (ECG)
+    - Медицинские изображения
+    - Лабораторные анализы
+    - Документы (OCR)
+    """)
+
+st.write("---")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    task_description = st.text_area(
+        "Описание задачи",
+        placeholder="Пример: боль в груди, одышка...",
+        height=100
+    )
+
+with col2:
+    uploaded_file = st.file_uploader(
+        "Загрузите файл",
+        type=["csv", "txt", "png", "jpg", "jpeg", "bmp", "xlsx", "xls", "pdf"],
+        help="Поддерживаемые форматы: CSV, TXT, PNG, JPG, XLSX, XLS, PDF"
+    )
+
+st.write("---")
+
+if st.button("Провести анализ", type="primary", use_container_width=True):
+    
+    if not task_description:
+        st.error("Опишите задачу")
+    elif not uploaded_file:
+        st.error("Загрузите файл")
+    else:
+        
+        with st.spinner("Обработка файла..."):
+            file_result = process_uploaded_file(uploaded_file, task_description)
+            
+            if file_result["error"]:
+                st.error(f"Ошибка: {file_result['error']}")
+            else:
+                st.success(f"Файл обработан: {file_result['analysis']}")
+                
+                with st.expander("Предварительный анализ"):
+                    st.write(f"Тип: {file_result['intent']}")
+                    if file_result['raw_data']:
+                        st.write(f"Данные: {json.dumps(file_result['raw_data'], ensure_ascii=False, indent=2)[:500]}")
+        
+        with st.spinner("Генерация отчета..."):
+            report_result = generate_medical_report(task_description, file_result)
+            
+            if report_result["success"]:
+                st.success("Отчет готов!")
+                
+                st.subheader("Медицинский отчет")
+                st.markdown(report_result["content"])
+                
+                if report_result.get("usage"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Input Tokens", report_result["usage"].get("prompt_tokens", "N/A"))
+                    with col2:
+                        st.metric("Output Tokens", report_result["usage"].get("completion_tokens", "N/A"))
+                    with col3:
+                        st.metric("Total Tokens", report_result["usage"].get("total_tokens", "N/A"))
+                
+                st.download_button(
+                    label="Скачать отчет",
+                    data=report_result["content"],
+                    file_name=f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
+                )
+            
+            else:
+                st.error(f"Ошибка: {report_result['error']}")
+                logger.error(f"Report error: {report_result['error']}")
+
+st.write("---")
+st.caption("MedAssistant CLD v1.0 | OpenRouter & Claude 3 Sonnet")
