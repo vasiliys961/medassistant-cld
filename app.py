@@ -1,24 +1,35 @@
 import streamlit as st
 import os
-import json
 import logging
 from datetime import datetime
-from dotenv import load_dotenv
 import httpx
 
-# Загружаем переменные окружения
-load_dotenv()
+def get_api_key(name: str) -> str:
+    return st.secrets.get(name) or os.getenv(name)
 
-# Конфигурация логирования
+# Только для локальной загрузки .env, и чтобы не мешало облаку
+if not st.secrets.get("OPENROUTER_API_KEY"):
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
+OPENROUTER_API_KEY = get_api_key("OPENROUTER_API_KEY")
+MODEL_NAME = "meta-llama/llama-3.2-90b-vision-instruct"
+OPENROUTER_URL = "https://openrouter.io/api/v1/chat/completions"
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler('medassistant.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Далее ваш UI и функции...
 
 # Импортируем модули
 from modules.intent_detection import detect_intent
